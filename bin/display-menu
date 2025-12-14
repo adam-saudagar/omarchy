@@ -1,0 +1,68 @@
+#!/bin/bash
+
+# Configuration
+CONFIG_DIR="$HOME/.config/monitors"
+TARGET_CONF="$HOME/.config/hypr/monitors.conf"
+WALKER_CMD="walker --dmenu -p 'Select Monitor Config:'"
+
+# --- Main Logic ---
+
+# 1. Check if the config directory exists
+if [ ! -d "$CONFIG_DIR" ]; then
+    notify-send "Monitor Switcher Error" "Configuration directory '$CONFIG_DIR' not found."
+    exit 1
+fi
+
+# 2. Prepare the list of configuration files for Walker
+# The output format for Walker's dmenu will be: 'filename (description)'
+CONFIG_OPTIONS=$(find "$CONFIG_DIR" -maxdepth 1 -type f \
+    ! -name '.*' -printf "%f\n" | while IFS= read -r FILENAME; do
+
+    # Check for a comment line in the config file to use as a description
+    # The sed command removes the leading '#' and any potential leading/trailing whitespace
+    DESCRIPTION=$(head -n 1 "$CONFIG_DIR/$FILENAME" | grep '^#' | sed 's/^# *//' | sed 's/ *$//' | xargs)
+
+    if [ -n "$DESCRIPTION" ]; then
+        echo "$FILENAME ($DESCRIPTION)"
+    else
+        echo "$FILENAME"
+    fi
+done)
+
+# 3. Launch Walker to select a file
+# Walker's dmenu output will be the full line: 'filename (description)'
+SELECTION_LINE=$(echo -e "$CONFIG_OPTIONS" | $WALKER_CMD)
+
+# Check if the user cancelled the selection (Walker returns nothing on cancel)
+if [ -z "$SELECTION_LINE" ]; then
+    exit 0
+fi
+
+# 4. Extract the original filename from the selection line
+# The filename is everything before the first space or parenthesis
+# Use sed to safely capture the filename regardless of the description format
+SELECTED_FILE=$(echo "$SELECTION_LINE" | sed 's/ (.*//')
+
+SOURCE_PATH="$CONFIG_DIR/$SELECTED_FILE"
+
+# 5. Validate the extracted filename/path
+if [ ! -f "$SOURCE_PATH" ]; then
+    notify-send "Monitor Switcher Error" "Configuration file '$SOURCE_PATH' not found."
+    exit 1
+fi
+
+# 6. Copy the selected config to the Hyprland target location
+# The -f flag forces the copy, which is the desired "override" behavior
+cp -f "$SOURCE_PATH" "$TARGET_CONF"
+
+# 7. Notify the user and reload Hyprland configuration
+notify-send "✅ Monitor Config Applied" "Successfully applied '$SELECTED_FILE' and reloading Hyprland."
+
+# Send a Hyprland dispatch to reload the monitor configuration.
+# The exit 0 is a safe way to trigger a full Hyprland reload without logging out.
+hyprctl reload
+
+# Optional: Log the action
+echo "[$(date +'%Y-%m-%d %H:%M:%S')] Applied '$SELECTED_FILE' to '$TARGET_CONF' and reloaded Hyprland." >> "$HOME/.local/log/monitor_switcher.log"
+
+exit 0
