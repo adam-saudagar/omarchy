@@ -17,16 +17,7 @@ fi
 # The output format for Walker's dmenu will be: 'filename (description)'
 CONFIG_OPTIONS=$(find "$CONFIG_DIR" -maxdepth 1 -type f \
     ! -name '.*' -printf "%f\n" | while IFS= read -r FILENAME; do
-
-    # Check for a comment line in the config file to use as a description
-    # The sed command removes the leading '#' and any potential leading/trailing whitespace
-    DESCRIPTION=$(head -n 1 "$CONFIG_DIR/$FILENAME" | grep '^#' | sed 's/^# *//' | sed 's/ *$//' | xargs)
-
-    if [ -n "$DESCRIPTION" ]; then
-        echo "$FILENAME ($DESCRIPTION)"
-    else
-        echo "$FILENAME"
-    fi
+    echo "$FILENAME"
 done)
 
 # 3. Launch Walker to select a file
