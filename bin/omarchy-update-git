@@ -4,5 +4,6 @@ set -e
 
 echo -e "\e[32mUpdate Omarchy\e[0m"
 
-git -C $OMARCHY_PATH pull --autostash
+git -C $OMARCHY_PATH rebase --autostash origin/master
+git push --force-with-lease
 git -C $OMARCHY_PATH diff --check || git -C $OMARCHY_PATH reset --merge
